@@ -35,7 +35,7 @@ export function useTimerLogic(
     if (intervalId) {
       clearInterval(intervalId);
     }
-    
+
     const id = setInterval(() => {
       const currentTimer = timerRef.current;
       const newTimeRemaining = currentTimer.timeRemaining - 1;
@@ -80,33 +80,30 @@ export function useTimerLogic(
   const startTimer = () => {
     if (timer.timeRemaining <= 0) {
       resetTimer();
-      return;
     }
 
-    if (timer.isRunning) return;
+    if (!timer.isRunning) {
+      onTimerUpdate({
+        isRunning: true,
+        isPaused: false,
+        isCompleted: false,
+      });
 
-    onTimerUpdate({ 
-      isRunning: true,
-      isPaused: false,
-      isCompleted: false
-    });
-
-    createTimerInterval();
+      createTimerInterval();
+    }
   };
 
   // Pause timer
   const pauseTimer = () => {
-    if (!timer.isRunning) return;
-
-    if (intervalId) {
+    if (timer.isRunning && intervalId) {
       clearInterval(intervalId);
       setIntervalId(null);
-    }
 
-    onTimerUpdate({ 
-      isRunning: false,
-      isPaused: true 
-    });
+      onTimerUpdate({
+        isRunning: false,
+        isPaused: true,
+      });
+    }
   };
 
   // Reset timer
@@ -143,12 +140,11 @@ export function useTimerLogic(
   useEffect(() => {
     if (timer.isRunning && !intervalId) {
       createTimerInterval();
-    } 
-    else if (!timer.isRunning && intervalId) {
+    } else if (!timer.isRunning && intervalId) {
       clearInterval(intervalId);
       setIntervalId(null);
     }
-    
+
     timerRef.current = timer;
   }, [timer.isRunning]);
 
@@ -166,6 +162,6 @@ export function useTimerLogic(
     pauseTimer,
     resetTimer,
     stopTimer,
-    audioRef
+    audioRef,
   };
 }
