@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect } from 'react';
 import { TimerConfig } from '@/types';
+import { useTimerLogic } from '@/hooks/useTimerLogic';
 
 interface TimerProps {
   timer: TimerConfig;
@@ -12,15 +13,7 @@ interface TimerProps {
 }
 
 export default function Timer({ timer, onTimerUpdate, className = '', fullscreen = false, onExitFullscreen }: TimerProps) {
-  // State for handling timer interval
-  const [intervalId, setIntervalId] = useState<NodeJS.Timeout | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const timerRef = useRef(timer); // Reference to keep track of current timer state
-
-  // Update the ref when timer prop changes
-  useEffect(() => {
-    timerRef.current = timer;
-  }, [timer]);
+  const { startTimer, pauseTimer, resetTimer, stopTimer, audioRef } = useTimerLogic(timer, onTimerUpdate);
 
   // Format time remaining to MM:SS format
   const formatTime = (seconds: number): string => {
@@ -28,166 +21,6 @@ export default function Timer({ timer, onTimerUpdate, className = '', fullscreen
     const remainingSeconds = seconds % 60;
     return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
-
-  // Function to create timer interval
-  const createTimerInterval = () => {
-    // Clear any existing interval first
-    if (intervalId) {
-      clearInterval(intervalId);
-      setIntervalId(null);
-    }
-    
-    const id = setInterval(() => {
-      const currentTimer = timerRef.current;
-      const newTimeRemaining = currentTimer.timeRemaining - 1;
-
-      if (newTimeRemaining <= 0) {
-        clearInterval(id);
-        setIntervalId(null);
-
-        if (audioRef.current) {
-          audioRef.current.play().catch(e => console.error("Error playing sound:", e));
-        }
-
-        showNotification(`Timer "${currentTimer.name}" completed!`);
-
-        if (currentTimer.currentCycle < currentTimer.cycles) {
-          onTimerUpdate({
-            timeRemaining: currentTimer.totalDurationInSeconds,
-            currentCycle: currentTimer.currentCycle + 1,
-            isRunning: false,
-            isPaused: false,
-            isCompleted: false,
-          });
-        } else {
-          onTimerUpdate({
-            isRunning: false,
-            isPaused: false,
-            isCompleted: true,
-          });
-        }
-      } else {
-        onTimerUpdate({
-          timeRemaining: newTimeRemaining,
-        });
-      }
-    }, 1000);
-
-    setIntervalId(id);
-    return id;
-  };
-
-  // Start timer
-  const startTimer = () => {
-    if (timer.timeRemaining <= 0) {
-      // If timer is finished, reset first
-      resetTimer();
-      return;
-    }
-
-    // If timer is already running, do nothing
-    if (timer.isRunning) return;
-
-    // Update timer status to running
-    onTimerUpdate({ 
-      isRunning: true,
-      isPaused: false,
-      isCompleted: false
-    });
-
-    createTimerInterval();
-  };
-
-  // Pause timer
-  const pauseTimer = () => {
-    if (!timer.isRunning) return;
-
-    // Stop interval
-    if (intervalId) {
-      clearInterval(intervalId);
-      setIntervalId(null);
-    }
-
-    // Update timer status
-    onTimerUpdate({ 
-      isRunning: false,
-      isPaused: true 
-    });
-  };
-
-  // Reset timer
-  const resetTimer = () => {
-    // Stop interval if exists
-    if (intervalId) {
-      clearInterval(intervalId);
-      setIntervalId(null);
-    }
-
-    // Reset timer to initial values
-    onTimerUpdate({
-      timeRemaining: timer.totalDurationInSeconds,
-      currentCycle: 1,
-      isRunning: false,
-      isPaused: false,
-      isCompleted: false,
-    });
-  };
-
-  // Stop timer completely
-  const stopTimer = () => {
-    // Stop interval if exists
-    if (intervalId) {
-      clearInterval(intervalId);
-      setIntervalId(null);
-    }
-
-    // Mark timer as completed
-    onTimerUpdate({
-      isRunning: false,
-      isPaused: false,
-      isCompleted: true,
-    });
-  };
-
-  // Show browser notification
-  const showNotification = (message: string) => {
-    if ('Notification' in window) {
-      if (Notification.permission === 'granted') {
-        new Notification(message);
-      } else if (Notification.permission !== 'denied') {
-        Notification.requestPermission().then(permission => {
-          if (permission === 'granted') {
-            new Notification(message);
-          }
-        });
-      }
-    }
-    
-    // Fallback to alert if notifications are not supported or permitted
-    alert(message);
-  };
-
-  // Handle running timer when component mounts or when timer.isRunning changes
-  useEffect(() => {
-    // If timer should be running but no interval exists, create one
-    if (timer.isRunning && !intervalId) {
-      createTimerInterval();
-    } 
-    // If timer should not be running but interval exists, clear it
-    else if (!timer.isRunning && intervalId) {
-      clearInterval(intervalId);
-      setIntervalId(null);
-    }
-  }, [timer.isRunning, fullscreen]);
-
-  // Clean up interval when component unmounts
-  useEffect(() => {
-    return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
-      }
-    };
-  }, []);
 
   // Get timer status text
   const getTimerStatus = (): string => {
@@ -255,6 +88,13 @@ export default function Timer({ timer, onTimerUpdate, className = '', fullscreen
               className="bg-gray-700 text-white px-8 py-4 rounded-lg text-xl font-medium hover:bg-gray-600 transition-colors"
             >
               Reset
+            </button>
+            
+            <button
+              onClick={stopTimer}
+              className="bg-gray-700 text-white px-8 py-4 rounded-lg text-xl font-medium hover:bg-gray-600 transition-colors"
+            >
+              Stop
             </button>
           </div>
         </div>
