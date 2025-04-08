@@ -1,192 +1,172 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { TimerConfig } from '@/types';
 
 interface TimerFormProps {
-  timer?: TimerConfig; // If provided, edit mode
+  timer?: TimerConfig;
   onSubmit: (timerData: Omit<TimerConfig, 'id' | 'createdAt' | 'updatedAt'>) => void;
   onCancel: () => void;
 }
 
-// Default values for form
-const defaultFormValues = {
-  name: '',
-  duration: {
-    minutes: 25,
-    seconds: 0,
-  },
-  totalDurationInSeconds: 25 * 60,
-  cycles: 1,
-  currentCycle: 1,
-  timeRemaining: 25 * 60, // in seconds
-  isRunning: false,
-  isPaused: false,
-  isCompleted: false,
-};
-
 export default function TimerForm({ timer, onSubmit, onCancel }: TimerFormProps) {
-  // State for form
-  const [formValues, setFormValues] = useState(defaultFormValues);
-  
-  // If timer is provided (edit mode), fill form with timer data
-  useEffect(() => {
-    if (timer) {
-      setFormValues({
-        name: timer.name,
-        duration: { ...timer.duration },
-        totalDurationInSeconds: timer.totalDurationInSeconds,
-        cycles: timer.cycles,
-        currentCycle: timer.currentCycle,
-        timeRemaining: timer.timeRemaining,
-        isRunning: timer.isRunning,
-        isPaused: timer.isPaused,
-        isCompleted: timer.isCompleted,
-      });
-    }
-  }, [timer]);
+  // Initialize form state with timer data if editing, or defaults if creating
+  const [formData, setFormData] = useState({
+    name: timer?.name || '',
+    minutes: timer?.duration.minutes || 25,
+    seconds: timer?.duration.seconds || 0,
+    cycles: timer?.cycles || 1,
+  });
 
-  // Handler for input changes
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  // Handle form input changes
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormValues(prev => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  // Handler for duration changes
-  const handleDurationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    const numValue = parseInt(value, 10) || 0;
     
-    setFormValues(prev => {
-      const newDuration = {
-        ...prev.duration,
-        [name]: numValue,
-      };
-      
-      // Calculate total duration in seconds
-      const totalSeconds = (newDuration.minutes * 60) + newDuration.seconds;
-      
-      return {
+    // Convert numeric values
+    if (name === 'minutes' || name === 'seconds' || name === 'cycles') {
+      const numValue = parseInt(value);
+      setFormData(prev => ({
         ...prev,
-        duration: newDuration,
-        totalDurationInSeconds: totalSeconds,
-        timeRemaining: totalSeconds, // Reset time remaining to match new duration
-      };
-    });
+        [name]: isNaN(numValue) ? 0 : numValue,
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value,
+      }));
+    }
   };
 
-  // Handler for cycles change
-  const handleCyclesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { value } = e.target;
-    const numValue = parseInt(value, 10) || 1;
-    
-    setFormValues(prev => ({
-      ...prev,
-      cycles: numValue,
-    }));
-  };
-
-  // Handler for form submit
+  // Handle form submission
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(formValues);
+    
+    // Validate form data
+    if (!formData.name.trim()) {
+      alert('Please enter a timer name');
+      return;
+    }
+    
+    if (formData.minutes === 0 && formData.seconds === 0) {
+      alert('Timer duration must be greater than 0');
+      return;
+    }
+    
+    if (formData.cycles < 1) {
+      alert('Number of cycles must be at least 1');
+      return;
+    }
+    
+    // Calculate total duration in seconds
+    const totalDurationInSeconds = (formData.minutes * 60) + formData.seconds;
+    
+    // Prepare timer data
+    const timerData = {
+      name: formData.name,
+      duration: {
+        minutes: formData.minutes,
+        seconds: formData.seconds,
+      },
+      totalDurationInSeconds,
+      cycles: formData.cycles,
+      currentCycle: timer?.currentCycle || 1,
+      timeRemaining: timer?.timeRemaining || totalDurationInSeconds,
+      isRunning: timer?.isRunning || false,
+      isPaused: timer?.isPaused || false,
+      isCompleted: timer?.isCompleted || false,
+    };
+    
+    // Submit timer data
+    onSubmit(timerData);
   };
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md w-full max-w-md">
-      <h2 className="text-xl font-bold mb-4">
-        {timer ? 'Edit Timer' : 'Add New Timer'}
+    <form onSubmit={handleSubmit} className="p-6">
+      <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-200">
+        {timer ? 'Edit Timer' : 'Create New Timer'}
       </h2>
       
       <div className="mb-4">
-        <label htmlFor="name" className="block text-sm font-medium mb-1">
-          Timer Name <span className="text-red-500">*</span>
+        <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          Timer Name
         </label>
         <input
           type="text"
           id="name"
           name="name"
-          value={formValues.name}
+          value={formData.name}
           onChange={handleChange}
+          placeholder="e.g., Focus Session"
+          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-500 dark:bg-gray-700 dark:text-white"
           required
-          placeholder="e.g., Focus Work, Break"
-          className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
         />
       </div>
       
-      <div className="mb-4">
-        <h3 className="text-md font-medium mb-2">Duration</h3>
+      <div className="grid grid-cols-2 gap-4 mb-4">
+        <div>
+          <label htmlFor="minutes" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Minutes
+          </label>
+          <input
+            type="number"
+            id="minutes"
+            name="minutes"
+            value={formData.minutes}
+            onChange={handleChange}
+            min="0"
+            max="59"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-500 dark:bg-gray-700 dark:text-white"
+            required
+          />
+        </div>
         
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="minutes" className="block text-sm font-medium mb-1">
-              Minutes
-            </label>
-            <input
-              type="number"
-              id="minutes"
-              name="minutes"
-              min="0"
-              max="60"
-              value={formValues.duration.minutes}
-              onChange={handleDurationChange}
-              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
-            />
-          </div>
-          
-          <div>
-            <label htmlFor="seconds" className="block text-sm font-medium mb-1">
-              Seconds
-            </label>
-            <input
-              type="number"
-              id="seconds"
-              name="seconds"
-              min="0"
-              max="59"
-              value={formValues.duration.seconds}
-              onChange={handleDurationChange}
-              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
-            />
-          </div>
+        <div>
+          <label htmlFor="seconds" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Seconds
+          </label>
+          <input
+            type="number"
+            id="seconds"
+            name="seconds"
+            value={formData.seconds}
+            onChange={handleChange}
+            min="0"
+            max="59"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-500 dark:bg-gray-700 dark:text-white"
+            required
+          />
         </div>
       </div>
       
-      <div className="mb-4">
-        <label htmlFor="cycles" className="block text-sm font-medium mb-1">
+      <div className="mb-6">
+        <label htmlFor="cycles" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
           Number of Cycles
         </label>
         <input
           type="number"
           id="cycles"
           name="cycles"
+          value={formData.cycles}
+          onChange={handleChange}
           min="1"
-          max="100"
-          value={formValues.cycles}
-          onChange={handleCyclesChange}
-          className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
+          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-500 dark:bg-gray-700 dark:text-white"
+          required
         />
-        <p className="text-xs text-gray-500 mt-1">
-          How many times the timer should repeat (1 = no repeat)
-        </p>
       </div>
       
-      <div className="flex justify-end gap-2 mt-6">
+      <div className="flex justify-end gap-3">
         <button
           type="button"
           onClick={onCancel}
-          className="px-4 py-2 border rounded-md hover:bg-gray-100 dark:hover:bg-gray-700"
+          className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
         >
           Cancel
         </button>
         <button
           type="submit"
-          className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="px-4 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-700 transition-colors"
         >
-          {timer ? 'Save Changes' : 'Add Timer'}
+          {timer ? 'Update Timer' : 'Create Timer'}
         </button>
       </div>
     </form>
