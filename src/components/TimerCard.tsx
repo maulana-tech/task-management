@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { TimerConfig } from '@/types';
 import { useTimerContext } from '@/context/TimerContext';
 import Timer from './Timer';
@@ -14,20 +14,6 @@ export default function TimerCard({ timer }: TimerCardProps) {
   const { updateTimer, deleteTimer, updateTimerStatus } = useTimerContext();
   const [isEditing, setIsEditing] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  // Track the latest timer state for fullscreen mode
-  const [currentTimerState, setCurrentTimerState] = useState(timer);
-
-  // Update current timer state when timer prop changes
-  useEffect(() => {
-    setCurrentTimerState(timer);
-  }, [timer]);
-
-  // Format time remaining to MM:SS format
-  const formatTime = (seconds: number): string => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
-  };
 
   // Get timer status for display
   const getTimerStatus = (): string => {
@@ -40,11 +26,6 @@ export default function TimerCard({ timer }: TimerCardProps) {
   // Handler for timer update
   const handleTimerUpdate = (timerData: Partial<TimerConfig>) => {
     updateTimerStatus(timer.id, timerData);
-    // Also update local state for fullscreen mode
-    setCurrentTimerState(prev => ({
-      ...prev,
-      ...timerData
-    }));
   };
 
   // Handler for edit timer
@@ -88,7 +69,7 @@ export default function TimerCard({ timer }: TimerCardProps) {
     <>
       {isFullscreen && (
         <Timer
-          timer={currentTimerState}
+          timer={timer}
           onTimerUpdate={handleTimerUpdate}
           fullscreen={true}
           onExitFullscreen={() => setIsFullscreen(false)}
